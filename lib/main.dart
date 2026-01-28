@@ -2,12 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'screens/home_screen.dart';
 import 'services/esp32_service.dart';
+import 'services/video_service.dart';
 
 void main() {
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => Esp32Service()),
+        ChangeNotifierProxyProvider<Esp32Service, VideoService>(
+          create: (context) => VideoService(context.read<Esp32Service>()),
+          update: (context, espService, videoService) => videoService ?? VideoService(espService),
+        ),
       ],
       child: const MyApp(),
     ),

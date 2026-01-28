@@ -29,6 +29,12 @@ class AppStyles {
     color: AppColors.textMain,
     letterSpacing: -0.5,
   );
+
+  static const headerStyle = TextStyle(
+    fontSize: 20,
+    fontWeight: FontWeight.bold,
+    color: AppColors.textMain,
+  );
   
   static const subtitleStyle = TextStyle(
     fontSize: 16,
