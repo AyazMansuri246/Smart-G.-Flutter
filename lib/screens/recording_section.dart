@@ -186,175 +186,10 @@ class _RecordingSectionState extends State<RecordingSection> {
                     ],
                   ),
                   
-class VideoPlayerOverlay extends StatefulWidget {
-  final VideoPlayerController controller;
-
-  const VideoPlayerOverlay({super.key, required this.controller});
-
-  @override
-  State<VideoPlayerOverlay> createState() => _VideoPlayerOverlayState();
-}
-
-class _VideoPlayerOverlayState extends State<VideoPlayerOverlay> {
-  bool _showControls = true;
-  Timer? _hideTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    _startHideTimer();
-    widget.controller.addListener(_onControllerUpdate);
-  }
-
-  void _onControllerUpdate() {
-    if (mounted) setState(() {});
-  }
-
-  @override
-  void dispose() {
-    _hideTimer?.cancel();
-    widget.controller.removeListener(_onControllerUpdate);
-    super.dispose();
-  }
-
-  void _startHideTimer() {
-    _hideTimer?.cancel();
-    _hideTimer = Timer(const Duration(seconds: 3), () {
-      if (mounted) setState(() => _showControls = false);
-    });
-  }
-
-  void _toggleControls() {
-    setState(() {
-      _showControls = !_showControls;
-      if (_showControls) _startHideTimer();
-    });
-  }
-
-  String _formatDuration(Duration duration) {
-    String twoDigits(int n) => n.toString().padLeft(2, "0");
-    String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
-    String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
-    return "$twoDigitMinutes:$twoDigitSeconds";
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: _toggleControls,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedOpacity(
-        opacity: _showControls ? 1.0 : 0.0,
-        duration: const Duration(milliseconds: 300),
-        child: Stack(
-          children: [
-            // Dark Overlay
-            Container(color: Colors.black26),
-            
-            // Middle Controls (Rewind, Play/Pause, Forward)
-            Center(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _circleIconButton(Icons.replay_10, () {
-                    final newPos = widget.controller.value.position - const Duration(seconds: 10);
-                    widget.controller.seekTo(newPos < Duration.zero ? Duration.zero : newPos);
-                    _startHideTimer();
-                  }),
-                  _circleIconButton(
-                    widget.controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
-                    () {
-                      widget.controller.value.isPlaying ? widget.controller.pause() : widget.controller.play();
-                      _startHideTimer();
-                    },
-                    isLarge: true,
-                  ),
-                  _circleIconButton(Icons.forward_10, () {
-                    final newPos = widget.controller.value.position + const Duration(seconds: 10);
-                    final max = widget.controller.value.duration;
-                    widget.controller.seekTo(newPos > max ? max : newPos);
-                    _startHideTimer();
-                  }),
-                ],
-              ),
+              ],
             ),
-
-            // Bottom Bar (Progress, Time)
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                    colors: [Colors.black54, Colors.transparent],
-                  ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Seek Bar
-                    VideoProgressIndicator(
-                      widget.controller,
-                      allowScrubbing: true,
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      colors: const VideoProgressColors(
-                        playedColor: AppColors.primary,
-                        bufferedColor: Colors.white24,
-                        backgroundColor: Colors.white10,
-                      ),
-                    ),
-                    Row(
-                      children: [
-                        Text(
-                          _formatDuration(widget.controller.value.position),
-                          style: const TextStyle(color: Colors.white, fontSize: 12),
-                        ),
-                        const Text(" / ", style: TextStyle(color: Colors.white54, fontSize: 12)),
-                        Text(
-                          _formatDuration(widget.controller.value.duration),
-                          style: const TextStyle(color: Colors.white70, fontSize: 12),
-                        ),
-                        const Spacer(),
-                        IconButton(
-                          icon: const Icon(Icons.fullscreen, color: Colors.white, size: 20),
-                          onPressed: () {
-                            // Fullscreen logic if needed
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _circleIconButton(IconData icon, VoidCallback onTap, {bool isLarge = false}) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(50),
-        child: Container(
-          padding: EdgeInsets.all(isLarge ? 16 : 12),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.black38,
           ),
-          child: Icon(icon, color: Colors.white, size: isLarge ? 32 : 24),
         ),
-      ),
-    );
-  }
-}
 
         
         // ---------------------------------------------
@@ -811,6 +646,176 @@ class _VideoPlayerDialogState extends State<VideoPlayerDialog> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class VideoPlayerOverlay extends StatefulWidget {
+  final VideoPlayerController controller;
+
+  const VideoPlayerOverlay({super.key, required this.controller});
+
+  @override
+  State<VideoPlayerOverlay> createState() => _VideoPlayerOverlayState();
+}
+
+class _VideoPlayerOverlayState extends State<VideoPlayerOverlay> {
+  bool _showControls = true;
+  Timer? _hideTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startHideTimer();
+    widget.controller.addListener(_onControllerUpdate);
+  }
+
+  void _onControllerUpdate() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _hideTimer?.cancel();
+    widget.controller.removeListener(_onControllerUpdate);
+    super.dispose();
+  }
+
+  void _startHideTimer() {
+    _hideTimer?.cancel();
+    _hideTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _showControls = false);
+    });
+  }
+
+  void _toggleControls() {
+    setState(() {
+      _showControls = !_showControls;
+      if (_showControls) _startHideTimer();
+    });
+  }
+
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, "0");
+    String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
+    String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
+    return "$twoDigitMinutes:$twoDigitSeconds";
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _toggleControls,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedOpacity(
+        opacity: _showControls ? 1.0 : 0.0,
+        duration: const Duration(milliseconds: 300),
+        child: Stack(
+          children: [
+            // Dark Overlay
+            Container(color: Colors.black26),
+            
+            // Middle Controls (Rewind, Play/Pause, Forward)
+            Center(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _circleIconButton(Icons.replay_10, () {
+                    final newPos = widget.controller.value.position - const Duration(seconds: 10);
+                    widget.controller.seekTo(newPos < Duration.zero ? Duration.zero : newPos);
+                    _startHideTimer();
+                  }),
+                  _circleIconButton(
+                    widget.controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
+                    () {
+                      widget.controller.value.isPlaying ? widget.controller.pause() : widget.controller.play();
+                      _startHideTimer();
+                    },
+                    isLarge: true,
+                  ),
+                  _circleIconButton(Icons.forward_10, () {
+                    final newPos = widget.controller.value.position + const Duration(seconds: 10);
+                    final max = widget.controller.value.duration;
+                    widget.controller.seekTo(newPos > max ? max : newPos);
+                    _startHideTimer();
+                  }),
+                ],
+              ),
+            ),
+
+            // Bottom Bar (Progress, Time)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [Colors.black54, Colors.transparent],
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Seek Bar
+                    VideoProgressIndicator(
+                      widget.controller,
+                      allowScrubbing: true,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      colors: const VideoProgressColors(
+                        playedColor: AppColors.primary,
+                        bufferedColor: Colors.white24,
+                        backgroundColor: Colors.white10,
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        Text(
+                          _formatDuration(widget.controller.value.position),
+                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                        ),
+                        const Text(" / ", style: TextStyle(color: Colors.white54, fontSize: 12)),
+                        Text(
+                          _formatDuration(widget.controller.value.duration),
+                          style: const TextStyle(color: Colors.white70, fontSize: 12),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.fullscreen, color: Colors.white, size: 20),
+                          onPressed: () {
+                            // Fullscreen logic if needed
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _circleIconButton(IconData icon, VoidCallback onTap, {bool isLarge = false}) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(50),
+        child: Container(
+          padding: EdgeInsets.all(isLarge ? 16 : 12),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.black38,
+          ),
+          child: Icon(icon, color: Colors.white, size: isLarge ? 32 : 24),
+        ),
       ),
     );
   }
