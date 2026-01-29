@@ -140,9 +140,9 @@ class VideoService extends ChangeNotifier {
       notifyListeners();
 
       final outputPath = (await getLocalVideoFile(videoName)).path;
-      espService.addLog("FFmpeg: Starting conversion...");
-      espService.addLog("FFmpeg: Input: ${aviFile.path}");
-      espService.addLog("FFmpeg: Output: $outputPath");
+      // espService.addLog("FFmpeg: Starting conversion...");
+      // espService.addLog("FFmpeg: Input: ${aviFile.path}");
+      // espService.addLog("FFmpeg: Output: $outputPath");
 
       // FFmpeg command to convert MJPEG AVI to H.264 MP4
       // Added -f avi to force input format detection if header is slightly off
@@ -168,10 +168,10 @@ class VideoService extends ChangeNotifier {
 
         } else {
           _videoStatuses[videoName] = VideoStatus.error;
-          espService.addLog("FFmpeg: Failed. Code: $returnCode");
-          if (logs.isNotEmpty) {
-             espService.addLog("FFmpeg Last Log: ${logs.last.getMessage()}");
-          }
+          // espService.addLog("FFmpeg: Failed. Code: $returnCode");
+          // if (logs.isNotEmpty) {
+          //    espService.addLog("FFmpeg Last Log: ${logs.last.getMessage()}");
+          // }
         }
         
         // Cleanup temp file

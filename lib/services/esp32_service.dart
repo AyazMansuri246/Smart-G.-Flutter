@@ -4,14 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 class Esp32Service extends ChangeNotifier {
-  String _ipAddress = "192.168.4.1";
-  bool _isConnected = false;
+  final String _ipAddress = "192.168.4.1";
+  bool _isConnected = true; // Assume connection for direct WiFi usage
   bool _isLoading = false;
   final List<String> _logs = [];
   List<String> _images = [];
   List<String> _videos = [];
   Uint8List? _previewImage;
-
+ 
   String get ipAddress => _ipAddress;
   bool get isConnected => _isConnected;
   bool get isLoading => _isLoading;
@@ -19,19 +19,19 @@ class Esp32Service extends ChangeNotifier {
   List<String> get images => _images;
   List<String> get videos => _videos;
   Uint8List? get previewImage => _previewImage;
-
-  void setIpAddress(String ip="192.168.4.1") {
-    _ipAddress = ip;
-    addLog("Target IP set to: $ip");
+ 
+  void setIpAddress({String ip = "192.168.4.1"}) {
+    // This is now just a placeholder for consistency, 
+    // it won't change the fixed IP or log it.
     notifyListeners();
   }
-
+ 
   void addLog(String message) {
     String timestamp = DateTime.now().toIso8601String().split('T').last.split('.').first;
     _logs.add("[$timestamp] $message");
     notifyListeners();
   }
-
+ 
   void clearLogs() {
     _logs.clear();
     notifyListeners();
@@ -54,9 +54,8 @@ class Esp32Service extends ChangeNotifier {
 
       if (response.statusCode >= 200 && response.statusCode < 400) {
          _isConnected = true;
-         addLog("Connected! Device responded to /images");
-         // Automatically fetch images upon successful connection
-         fetchImages();
+         addLog("Connected! Device responding to /images");
+         // No automatic fetch here anymore.
       } else {
          addLog("Device reachable but /images returned error: ${response.statusCode}");
          _isConnected = true; 
@@ -74,20 +73,19 @@ class Esp32Service extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    addLog("Fetching image list...");
+    final url = 'http://$_ipAddress/images';
+    addLog("GET: Requesting $url");
     try {
-      final response = await http.get(
-        Uri.parse('http://$_ipAddress/images'),
-      ).timeout(const Duration(seconds: 25));
+      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         _images = List<String>.from(jsonDecode(response.body));
-        addLog("Found ${_images.length} images");
+        addLog("Success! Found ${_images.length} images.");
       } else {
-        addLog("Failed to fetch images: ${response.statusCode}");
+        addLog("Server Error: ${response.statusCode} - ${response.reasonPhrase}");
       }
     } catch (e) {
-      addLog("Error fetching images: $e");
+      addLog("Connection Failed: $e. Check if you are connected to the ESP32 WiFi.");
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -122,22 +120,22 @@ class Esp32Service extends ChangeNotifier {
   Future<void> fetchVideos() async {
     if (_ipAddress.isEmpty) return;
     
-    // Explicit log as requested by user
-    addLog("Requesting video list from ESP32...");
+    final url = 'http://$_ipAddress/videos';
+    addLog("GET: Requesting $url");
     
     _isLoading = true;
     notifyListeners();
     
     try {
-      final response = await http.get(Uri.parse('http://$_ipAddress/videos')).timeout(const Duration(seconds: 25));
+      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         _videos = List<String>.from(jsonDecode(response.body));
-        addLog("Found ${_videos.length} videos on SD Card");
+        addLog("Success! Found ${_videos.length} videos.");
       } else {
-        addLog("Failed to fetch videos: ${response.statusCode}");
+        addLog("Server Error: ${response.statusCode}");
       }
     } catch (e) {
-      addLog("Error fetching videos: $e");
+      addLog("Connection Failed: $e. Check if your phone is on the ESP32's WiFi.");
     } finally {
       _isLoading = false;
       notifyListeners();

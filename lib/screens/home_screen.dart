@@ -28,12 +28,12 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void _showConnectionDialog(BuildContext context) {
+  void _showLogs(BuildContext context) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => const ConnectionDialog(),
+      builder: (context) => const LogViewerDialog(),
     );
   }
 
@@ -50,13 +50,11 @@ class _HomeScreenState extends State<HomeScreen> {
       body: SafeArea(
         child: _pages.elementAt(_selectedIndex),
       ),
-      floatingActionButton: _selectedIndex < 2 
-          ? FloatingActionButton( // Only show FAB on Image/Recording tabs
-              onPressed: () => _showConnectionDialog(context),
-              backgroundColor: AppColors.secondary,
-              child: const Icon(Icons.add, color: Colors.white),
-            )
-          : null,
+      floatingActionButton: FloatingActionButton( 
+        onPressed: () => _showLogs(context),
+        backgroundColor: AppColors.primary,
+        child: const Icon(Icons.list_alt, color: Colors.white),
+      ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
@@ -96,13 +94,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class ConnectionDialog extends StatelessWidget {
-  const ConnectionDialog({super.key});
+class LogViewerDialog extends StatelessWidget {
+  const LogViewerDialog({super.key});
 
   @override
   Widget build(BuildContext context) {
     final espService = Provider.of<Esp32Service>(context);
-    final ipController = TextEditingController(text: espService.ipAddress);
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.6,
@@ -119,60 +116,49 @@ class ConnectionDialog extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.wifi, color: AppColors.primary, size: 28),
+              const Icon(Icons.history, color: AppColors.primary, size: 28),
               const SizedBox(width: 10),
-              const Text("Connect to Device", style: AppStyles.titleStyle),
+              const Text("System Logs", style: AppStyles.titleStyle),
               const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.delete_outline, color: Colors.redAccent), 
+                onPressed: espService.clearLogs
+              ),
               IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
             ],
           ),
+          const SizedBox(height: 10),
+          const Text(
+            "Tracking device activity on 192.168.4.1", 
+            style: TextStyle(color: Colors.grey, fontSize: 13)
+          ),
           const SizedBox(height: 20),
           
-          TextField(
-            controller: ipController,
-            decoration: InputDecoration(
-              labelText: "ESP32 IP Address",
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              prefixIcon: const Icon(Icons.computer),
-            ),
-          ),
-          const SizedBox(height: 16),
-          
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: ElevatedButton(
-              onPressed: () {
-                espService.setIpAddress(ipController.text);
-                espService.connect();
-                FocusScope.of(context).unfocus(); // Request connect but stay in dialog to see logs
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: const Text("Connect"),
-            ),
-          ),
-          
-          const SizedBox(height: 24),
-          const Text("Connection Logs", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          const Divider(),
-          
           Expanded(
-            child: ListView.builder(
-              itemCount: espService.logs.length,
-              itemBuilder: (context, index) {
-                // Show newest logs at top visually or bottom? 
-                // Let's reverse access for UI so newest is at top or auto-scroll. 
-                // Simple list is fine.
-                final log = espService.logs[espService.logs.length - 1 - index];
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Text(log, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
-                );
-              },
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: Colors.grey[200]!),
+              ),
+              child: ListView.builder(
+                itemCount: espService.logs.length,
+                itemBuilder: (context, index) {
+                  final log = espService.logs[espService.logs.length - 1 - index];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(">", style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text(log, style: const TextStyle(fontFamily: 'monospace', fontSize: 12))),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
           ),
         ],
