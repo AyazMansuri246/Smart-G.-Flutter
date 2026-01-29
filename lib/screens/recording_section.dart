@@ -271,7 +271,13 @@ class _RecordingSectionState extends State<RecordingSection> {
                             status: status,
                             progress: progress,
                             onPlay: () => _onVideoTap(videoName, status), // Same as tapping the tile
-                            onDownload: () => videoService.processVideos([videoName]), // Trigger download
+                            onDownload: () {
+                              if (status == VideoStatus.ready) {
+                                _downloadToGallery(videoName);
+                              } else {
+                                videoService.processVideos([videoName]);
+                              }
+                            },
                             onDelete: () => _showDeleteOptions(videoName),
                           ),
                         ),
@@ -298,13 +304,19 @@ class _RecordingSectionState extends State<RecordingSection> {
   }
 
   void _downloadToGallery(String videoName) async {
+    final espService = Provider.of<Esp32Service>(context, listen: false);
     final videoService = Provider.of<VideoService>(context, listen: false);
+    
+    espService.addLog("Gallery: Requesting save for $videoName...");
     final file = await videoService.getLocalVideoFile(videoName);
     
     if (await file.exists()) {
       try {
+        espService.addLog("Gallery: File found at ${file.path}. Saving...");
         await Gal.putVideo(file.path);
         if (!mounted) return;
+        
+        espService.addLog("Gallery: Success! Video saved.");
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Video saved to gallery!'),
@@ -313,11 +325,14 @@ class _RecordingSectionState extends State<RecordingSection> {
           ),
         );
       } catch (e) {
+        espService.addLog("Gallery Error: $e");
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error saving video: $e')),
         );
       }
+    } else {
+      espService.addLog("Gallery Error: Local file not found for $videoName");
     }
   }
 

@@ -20,7 +20,7 @@ class Esp32Service extends ChangeNotifier {
   List<String> get videos => _videos;
   Uint8List? get previewImage => _previewImage;
 
-  void setIpAddress(String ip) {
+  void setIpAddress(String ip="192.168.4.1") {
     _ipAddress = ip;
     addLog("Target IP set to: $ip");
     notifyListeners();
