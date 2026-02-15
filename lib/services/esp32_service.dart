@@ -157,21 +157,20 @@ Perfect SD path.
  */
 // Very important!!!!!!.
 
-  Future<Stream<List<int>>?> downloadVideoStream(String videoName) async {
-    addLog("Starting download stream for $videoName...");
+  Future<Stream<List<int>>?> downloadFileStream(String folderName, String type) async {
+    addLog("Starting download stream for $folderName ($type)...");
     try {
-      // Ensure the name has a leading slash if the ESP32 expects it
-      final fileName = videoName.startsWith('/') ? videoName : '/$videoName';
-      final encoded = Uri.encodeComponent(fileName);
+      // folderName might be "Video_xxx". specific file depends on type.
+      final encodedFolder = Uri.encodeComponent(folderName);
+      final encodedType = Uri.encodeComponent(type);
       
-      // Use 'file' to match the ESP32 code: if (!req->hasParam("file")) ...
-      final url = 'http://$_ipAddress/video?file=$encoded';
+      final url = 'http://$_ipAddress/download?folder=$encodedFolder&type=$encodedType';
       addLog("Request URL: $url");
 
       final request = http.Request('GET', Uri.parse(url));
       final response = await request.send().timeout(const Duration(seconds: 60));
       
-      addLog("Download response code: ${response.statusCode}");
+      addLog("Download response code for $type: ${response.statusCode}");
       if (response.statusCode == 200) {
         return response.stream;
       } else if (response.statusCode == 503) {

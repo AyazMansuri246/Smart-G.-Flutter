@@ -233,45 +233,125 @@ class _RecordingSectionState extends State<RecordingSection> {
                     ],
                   ),
                 )
-              : ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: videos.length,
-                  itemBuilder: (context, index) {
-                    final videoName = videos[index];
-                    final status = videoService.getStatus(videoName);
-                    final progress = videoService.getProgress(videoName);
-                    final isSelected = videoName == _previewName;
+              : Builder(
+                  builder: (context) {
+                    // Grouping Logic
+                    final remoteList = <String>[];
+                    final localList = <String>[];
+                    
+                    for (var v in videos) {
+                       if (videoService.getStatus(v) == VideoStatus.ready) {
+                         localList.add(v);
+                       } else {
+                         remoteList.add(v);
+                       }
+                    }
 
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8.0),
-                      child: InkWell(
-                        onTap: () => _onVideoTap(videoName, status),
-                        borderRadius: BorderRadius.circular(15),
-                        child: Container(
-                          // Highlight selected item
-                          decoration: isSelected ? BoxDecoration(
-                            border: Border.all(color: AppColors.primary, width: 2),
-                            borderRadius: BorderRadius.circular(15), 
-                          ) : null,
-                          child: VideoListTile(
-                            videoName: videoName,
-                            status: status,
-                            progress: progress,
-                            onPlay: () => _onVideoTap(videoName, status), // Same as tapping the tile
-                            onDownload: () {
-                              if (status == VideoStatus.ready) {
-                                _downloadToGallery(videoName);
-                              } else {
-                                videoService.processVideos([videoName]);
-                              }
-                            },
-                            onDelete: () => _showDeleteOptions(videoName),
+                    // Sort local by date desc
+                    localList.sort((a, b) {
+                       final dateA = videoService.getFileDate(a) ?? DateTime.fromMillisecondsSinceEpoch(0);
+                       final dateB = videoService.getFileDate(b) ?? DateTime.fromMillisecondsSinceEpoch(0);
+                       return dateB.compareTo(dateA);
+                    });
+
+                    final items = <dynamic>[];
+                    
+                    if (remoteList.isNotEmpty) {
+                      items.add("New Recordings"); // Header
+                      items.addAll(remoteList);
+                    }
+                    
+                    if (localList.isNotEmpty) {
+                       DateTime? lastDate;
+                       for (var name in localList) {
+                          final date = videoService.getFileDate(name);
+                          if (date != null) {
+                             final day = DateTime(date.year, date.month, date.day);
+                             final lastDay = lastDate != null ? DateTime(lastDate.year, lastDate.month, lastDate.day) : null;
+                             
+                             if (lastDay == null || day != lastDay) {
+                                String header = "${day.day}/${day.month}/${day.year}";
+                                final now = DateTime.now();
+                                final today = DateTime(now.year, now.month, now.day);
+                                final yesterday = today.subtract(const Duration(days: 1));
+                                
+                                if (day == today) header = "Today";
+                                else if (day == yesterday) header = "Yesterday";
+                                
+                                items.add(header);
+                                lastDate = date;
+                             }
+                          } else {
+                             // No date found
+                             if (lastDate != null) {
+                                items.add("Unknown Date");
+                                lastDate = null; 
+                             }
+                          }
+                          items.add(name);
+                       }
+                    }
+
+                    return ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      physics: const BouncingScrollPhysics(),
+                      itemCount: items.length,
+                      itemBuilder: (context, index) {
+                        final item = items[index];
+                        
+                        if (item is String && !videos.contains(item)) {
+                           // It's a header (since video names are strings too, we filter by ensuring it's not in the video list, 
+                           // BUT wait, a video name could ostensibly be "Today". Unlikely but risky.
+                           // Better to use a wrapper, but for now this check handles "New Recordings", "Today", "Yesterday" which are unlikely video names.
+                           // Actually "Video_..." is the format.
+                           return Padding(
+                             padding: const EdgeInsets.only(top: 16, bottom: 8, left: 4),
+                             child: Text(
+                               item, 
+                               style: TextStyle(
+                                 color: Colors.grey[600], 
+                                 fontWeight: FontWeight.bold, 
+                                 fontSize: 14
+                               )
+                             ),
+                           );
+                        }
+                        
+                        final videoName = item as String;
+                        final status = videoService.getStatus(videoName);
+                        final progress = videoService.getProgress(videoName);
+                        final isSelected = videoName == _previewName;
+
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8.0),
+                          child: InkWell(
+                            onTap: () => _onVideoTap(videoName, status),
+                            borderRadius: BorderRadius.circular(15),
+                            child: Container(
+                              decoration: isSelected ? BoxDecoration(
+                                border: Border.all(color: AppColors.primary, width: 2),
+                                borderRadius: BorderRadius.circular(15), 
+                              ) : null,
+                              child: VideoListTile(
+                                videoName: videoName,
+                                status: status,
+                                progress: progress,
+                                onPlay: () => _onVideoTap(videoName, status),
+                                onDownload: () {
+                                  if (status == VideoStatus.ready) {
+                                    _downloadToGallery(videoName);
+                                  } else {
+                                    videoService.processVideos([videoName]);
+                                  }
+                                },
+                                onDelete: () => _showDeleteOptions(videoName),
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
+                        );
+                      },
                     );
-                  },
+                  }
                 ),
         ),
       ],

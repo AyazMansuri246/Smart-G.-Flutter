@@ -29,6 +29,9 @@ class VideoService extends ChangeNotifier {
   double getProgress(String videoName) => _downloadProgress[videoName] ?? 0.0;
   List<String> get localVideoNames => _localVideoNames;
 
+  final Map<String, DateTime> _localFileDates = {};
+  DateTime? getFileDate(String videoName) => _localFileDates[videoName];
+
   Future<String> get _localPath async {
     final directory = await getApplicationDocumentsDirectory();
     return directory.path;
@@ -62,6 +65,7 @@ class VideoService extends ChangeNotifier {
         if (file is File && file.path.endsWith('.mp4')) {
           final name = file.path.split(Platform.pathSeparator).last.replaceFirst('.mp4', '');
           _videoStatuses[name] = VideoStatus.ready;
+          _localFileDates[name] = file.lastModifiedSync();
           if (!_localVideoNames.contains(name)) {
             _localVideoNames.add(name);
           }
@@ -79,116 +83,100 @@ class VideoService extends ChangeNotifier {
     }
   }
 
-  Future<void> _downloadAndProcess(String videoName) async {
+  Future<void> _downloadAndProcess(String folderName) async {
     try {
-      _videoStatuses[videoName] = VideoStatus.downloading;
-      _downloadProgress[videoName] = 0.0;
+      _videoStatuses[folderName] = VideoStatus.downloading;
+      _downloadProgress[folderName] = 0.0;
       notifyListeners();
-
-      final stream = await espService.downloadVideoStream(videoName);
-      
-      if (stream == null) {
-        espService.addLog("Error: Failed to initiate download stream for $videoName");
-        _videoStatuses[videoName] = VideoStatus.error;
-        notifyListeners();
-        return;
-      }
 
       final tempDir = await getTemporaryDirectory();
-      final aviFile = File('${tempDir.path}/$videoName');
-      espService.addLog("Storage: Preparing temp file at ${aviFile.path}");
-      
-      // Write stream to file
-      final sink = aviFile.openWrite();
-      int receivedBytes = 0;
-      // We don't know total size easily without Content-Length header from ESP32, 
-      // but we can just show activity.
-      
-      try {
-        await stream.forEach((chunk) {
-          sink.add(chunk);
-          receivedBytes += chunk.length;
-          // Animate progress arbitrarily or based on estimate since we might not have total size
-          if (receivedBytes % (1024 * 100) == 0) { // Every 100KB update logs/UI (optional)
-             // Update logic if we had total size
-          }
-        });
-        await sink.flush();
-        await sink.close();
-        espService.addLog("Storage: Download complete. Bytes written: $receivedBytes");
-      } catch (e) {
-        await sink.close();
-        espService.addLog("Storage: Error writing to file: $e");
-        throw e;
-      }
+      final videoFile = File('${tempDir.path}/${folderName}_video.avi');
+      final audioFile = File('${tempDir.path}/${folderName}_audio.wav');
 
-      _downloadProgress[videoName] = 1.0;
+      // 1. Download Video
+      espService.addLog("Downloading video... $folderName");
+      final videoStream = await espService.downloadFileStream(folderName, "video");
+      if (videoStream == null) {
+        throw Exception("Failed to get video stream");
+      }
+      
+      final vSink = videoFile.openWrite();
+      int vBytes = 0;
+      await videoStream.forEach((chunk) {
+        vSink.add(chunk);
+        vBytes += chunk.length;
+        // Approximation: 0.0 -> 0.45
+      });
+      await vSink.flush(); 
+      await vSink.close();
+      
+      if (await videoFile.length() == 0) throw Exception("Downloaded video is empty");
+      
+      _downloadProgress[folderName] = 0.5;
       notifyListeners();
 
-      // Check if file is valid/empty
-      int fileSize = await aviFile.length();
-      if (fileSize == 0) {
-         espService.addLog("Error: Downloaded file is empty (0 bytes).");
-         _videoStatuses[videoName] = VideoStatus.error;
-         notifyListeners();
-         return;
-      } else {
-         espService.addLog("Storage: Temp file verified. Size: ${(fileSize/1024).toStringAsFixed(2)} KB");
+      // 2. Download Audio
+      espService.addLog("Downloading audio... $folderName");
+      final audioStream = await espService.downloadFileStream(folderName, "audio");
+      if (audioStream == null) {
+        throw Exception("Failed to get audio stream");
       }
 
-      _videoStatuses[videoName] = VideoStatus.processing;
+      final aSink = audioFile.openWrite();
+      int aBytes = 0;
+      await audioStream.forEach((chunk) {
+        aSink.add(chunk);
+        aBytes += chunk.length;
+      });
+      await aSink.flush();
+      await aSink.close();
+
+      if (await audioFile.length() == 0) throw Exception("Downloaded audio is empty");
+
+      _downloadProgress[folderName] = 1.0;
       notifyListeners();
 
-      final outputPath = (await getLocalVideoFile(videoName)).path;
-      // espService.addLog("FFmpeg: Starting conversion...");
-      // espService.addLog("FFmpeg: Input: ${aviFile.path}");
-      // espService.addLog("FFmpeg: Output: $outputPath");
+      // 3. Merge with FFmpeg
+      _videoStatuses[folderName] = VideoStatus.processing;
+      notifyListeners();
 
-      // FFmpeg command to convert MJPEG AVI to H.264 MP4
-      // Added -f avi to force input format detection if header is slightly off
-      final ffmpegCommand = '-y -i "${aviFile.path}" -c:v libx264 -pix_fmt yuv420p "$outputPath"';
-      
-      await FFmpegKit.execute(ffmpegCommand).then((session) async {
+      final outputPath = (await getLocalVideoFile(folderName)).path;
+      espService.addLog("Merging video and audio...");
+
+      // -c:v libx264 -pix_fmt yuv420p -c:a aac
+      // Using 'aac' for audio compatibility
+      final command = '-y -i "${videoFile.path}" -i "${audioFile.path}" -c:v libx264 -pix_fmt yuv420p -c:a aac "$outputPath"';
+
+      await FFmpegKit.execute(command).then((session) async {
         final returnCode = await session.getReturnCode();
-        final logs = await session.getLogs();
         
         if (ReturnCode.isSuccess(returnCode)) {
-          _videoStatuses[videoName] = VideoStatus.ready;
-          if (!_localVideoNames.contains(videoName)) {
-             _localVideoNames.add(videoName);
+          _videoStatuses[folderName] = VideoStatus.ready;
+          if (!_localVideoNames.contains(folderName)) {
+             _localVideoNames.add(folderName);
           }
-          espService.addLog("Storage: Success! Video saved to $outputPath");
-          // Check final file
-           File finalFile = File(outputPath);
-           if (await finalFile.exists()) {
-             espService.addLog("Storage: Final MP4 size: ${await finalFile.length()} bytes");
-           } else {
-             espService.addLog("Storage Error: MP4 processing reported success but file missing!");
-           }
-
+          espService.addLog("Success! Video merged and saved to $outputPath");
+          
+          await _refreshLocalStatuses(); // Ensure list is up to date
         } else {
-          _videoStatuses[videoName] = VideoStatus.error;
-          // espService.addLog("FFmpeg: Failed. Code: $returnCode");
-          // if (logs.isNotEmpty) {
-          //    espService.addLog("FFmpeg Last Log: ${logs.last.getMessage()}");
-          // }
+          _videoStatuses[folderName] = VideoStatus.error;
+          final logs = await session.getLogs();
+          espService.addLog("FFmpeg Failed. Code: $returnCode");
+          if (logs.isNotEmpty) {
+             espService.addLog("FFmpeg Log: ${logs.last.getMessage()}");
+          }
         }
         
-        // Cleanup temp file
-        if (await aviFile.exists()) {
-          await aviFile.delete();
-          espService.addLog("Storage: Temp file cleaned up.");
-        }
+        // Cleanup temp files
+        if (await videoFile.exists()) await videoFile.delete();
+        if (await audioFile.exists()) await audioFile.delete();
+        
         notifyListeners();
       });
-      // final logs = await session.getLogs(); 
-      // for (final log in logs) {
-      //   espService.addLog("FFmpeg: ${log.getMessage()}");
-      // }
 
     } catch (e) {
-      _videoStatuses[videoName] = VideoStatus.error;
-      espService.addLog("Error processing $videoName: $e");
+      _videoStatuses[folderName] = VideoStatus.error;
+      espService.addLog("Error processing $folderName: $e");
       notifyListeners();
     }
   }
