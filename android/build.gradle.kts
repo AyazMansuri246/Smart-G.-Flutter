@@ -1,3 +1,4 @@
+
 allprojects {
     repositories {
         google()
@@ -21,4 +22,9 @@ subprojects {
 
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
+}
+
+// Workaround for AGP 8+ namespace requirement for older plugins like vosk_flutter
+subprojects {
+    
 }

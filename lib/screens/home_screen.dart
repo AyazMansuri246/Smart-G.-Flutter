@@ -5,6 +5,7 @@ import '../services/esp32_service.dart';
 import 'image_section.dart';
 import 'recording_section.dart';
 import 'speech_section.dart';
+import 'live_translation_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -20,6 +21,7 @@ class _HomeScreenState extends State<HomeScreen> {
     ImageSection(),
     RecordingSection(),
     SpeechSection(),
+    LiveTranslationScreen(),
   ];
 
   void _onItemTapped(int index) {
@@ -79,6 +81,10 @@ class _HomeScreenState extends State<HomeScreen> {
             BottomNavigationBarItem(
               icon: Icon(Icons.record_voice_over),
               label: 'Speech',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.translate),
+              label: 'Live',
             ),
           ],
           currentIndex: _selectedIndex,
